@@ -1,5 +1,8 @@
 package com.test.log4j.asynchronous.testasynchronous;
 
+import java.util.Iterator;
+import java.util.Set;
+
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
@@ -36,10 +39,11 @@ public class AsynchronousTest {
 		ctx.updateLoggers();
 		logger = ctx.getLogger(loggerName);
 		logger.addAppender(attachConsoleAppender(ctx.getConfiguration(), appenderName));
-		while (counter < 2000) {
+		while (counter < 200) {
 			logger.error(testMessage + counter);
 			counter++;
 		}
+
 		closeLogger();
 	}
 
@@ -52,9 +56,49 @@ public class AsynchronousTest {
 
 	public void closeLogger() {
 
+		try {
+			Thread.currentThread().join();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 		config.getLoggerConfig(loggerName).getAppenders().get(appenderName).stop();
 		config.getLoggerConfig(loggerName).removeAppender(appenderName);
 		config.removeLogger(loggerName);
 		ctx.updateLoggers();
+	}
+
+	// this method does not worked correctly
+	public void closeLogger1() {
+
+		Thread asyncLogThread = getAsyncLogThread();
+		while (!asyncLogThread.isAlive()) {
+			try {
+				System.out.println("State" + asyncLogThread.getState());
+				wait(100);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			if (!asyncLogThread.isAlive()) {
+				System.out.println("State" + asyncLogThread.getState());
+				config.getLoggerConfig(loggerName).getAppenders().get(appenderName).stop();
+				config.getLoggerConfig(loggerName).removeAppender(appenderName);
+				config.removeLogger(loggerName);
+				ctx.updateLoggers();
+			}
+		}
+	}
+
+	private Thread getAsyncLogThread() {
+		Thread asyncLogThread = null;
+		Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
+		Iterator<Thread> itr = threadSet.iterator();
+		while (itr.hasNext()) {
+			asyncLogThread = itr.next();
+			if (asyncLogThread.getClass() == org.apache.logging.log4j.core.util.Log4jThread.class) {
+				break;
+			}
+		}
+		System.out.println(asyncLogThread.isAlive() + " state " + asyncLogThread.getState());
+		return asyncLogThread;
 	}
 }
