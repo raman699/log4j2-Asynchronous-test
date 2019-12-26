@@ -6,7 +6,6 @@ import java.util.Set;
 import org.apache.logging.log4j.core.Appender;
 import org.apache.logging.log4j.core.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.appender.AsyncAppender;
 import org.apache.logging.log4j.core.appender.ConsoleAppender;
 import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.Configurator;
@@ -40,12 +39,12 @@ public class AsynchronousTest {
 		ctx.updateLoggers();
 		logger = ctx.getLogger(loggerName);
 		logger.addAppender(attachConsoleAppender(ctx.getConfiguration(), appenderName));
-		while (counter < 200) {
+		while (counter < 10) {
 			logger.error(testMessage + counter);
 			counter++;
 		}
 
-		closeLogger1();
+		closeLogger();
 	}
 
 	private Appender attachConsoleAppender(Configuration config, String appenderName) {
@@ -57,53 +56,40 @@ public class AsynchronousTest {
 
 	public void closeLogger() {
 
-		try {
-			Thread.currentThread().join();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		config.getLoggerConfig(loggerName).getAppenders().get(appenderName).stop();
-		config.getLoggerConfig(loggerName).removeAppender(appenderName);
-		config.removeLogger(loggerName);
-		ctx.updateLoggers();
-	}
-
-	// this method does not worked correctly
-	public void closeLogger1() {
-
 		Thread asyncLogThread = getAsyncLogThread();
 		try {
 			asyncLogThread.join(1000);
 		} catch (InterruptedException e) {
 			e.printStackTrace();
-
-			System.out.println("State" + asyncLogThread.getState());
-			config.getLoggerConfig(loggerName).getAppenders().get(appenderName).stop();
-			config.getLoggerConfig(loggerName).removeAppender(appenderName);
-			config.removeLogger(loggerName);
-			ctx.updateLoggers();
-
 		}
-	}
-
-	private void closeLogger2() {
-		Appender appender = config.getLoggerConfig(loggerName).getAppenders().get(appenderName);
-		AsyncAppender asyncAppender = null;
-		if (appender instanceof AsyncAppender)
-			asyncAppender = (AsyncAppender) appender;
-		while (asyncAppender.getQueueSize() != 0) {
-			try {
-				wait(100);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
+		System.out.println("State" + asyncLogThread.getState());
 		config.getLoggerConfig(loggerName).getAppenders().get(appenderName).stop();
 		config.getLoggerConfig(loggerName).removeAppender(appenderName);
 		config.removeLogger(loggerName);
 		ctx.updateLoggers();
 	}
+
+	// the below code did not work
+//	public void closeLogger2() {
+//
+//		Thread asyncLogThread = getAsyncLogThread();
+//
+//		while (asyncLogThread.getState() != Thread.State.TIMED_WAITING) {
+//			try {
+//				System.out.println("thread state is " + Thread.State.TIMED_WAITING);
+//				asyncLogThread.wait(1000);
+//			} catch (InterruptedException e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+//		}
+//
+//		System.out.println("State" + asyncLogThread.getState());
+//		config.getLoggerConfig(loggerName).getAppenders().get(appenderName).stop();
+//		config.getLoggerConfig(loggerName).removeAppender(appenderName);
+//		config.removeLogger(loggerName);
+//		ctx.updateLoggers();
+//	}
 
 	private Thread getAsyncLogThread() {
 		Thread asyncLogThread = null;
